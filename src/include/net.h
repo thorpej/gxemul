@@ -170,6 +170,12 @@ void net_tap_tx(struct net *net, struct nic_data *nic, unsigned char *packet,
 	int len);
 int net_tap_init(struct net *net, const char *tapdev);
 
+/*  net_ether.cc  */
+int net_ether_eq(const uint8_t *a1, const uint8_t *a2);
+int net_ether_broadcast(const uint8_t *a);
+int net_ether_multicast(const uint8_t *a);
+uint32_t net_ether_crc32_le(const uint8_t *buf, size_t len);
+
 /*  net_misc.c:  */
 void net_debugaddr(void *addr, int type);
 void net_generate_unique_mac(struct machine *, unsigned char *macbuf);

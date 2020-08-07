@@ -58,10 +58,6 @@ static void net_tap_rx_for_nic(struct net *net, struct nic_data *nic,
 	struct ethernet_packet_link *lp;
 
 	/*
-	 * XXX IMPLEMENT FILTERING
-	 * XXX Requires implementing a common header to NIC data for
-	 * XXX us to access here.
-	 *
 	 * We should deliver to the interface if:
 	 *
 	 * ==> The packet is broadcast or multicast (the emulated device
@@ -69,12 +65,21 @@ static void net_tap_rx_for_nic(struct net *net, struct nic_data *nic,
 	 *  -- or --
 	 * ==> The destination MAC address matches the NIC MAC address.
 	 *  -- or --
-	 *
 	 * ==> The interface is in promiscuous mode.
+	 *
+	 * Note that normally a switch would not know if an interface
+	 * is in promiscuous mode, but this is a bit of extra magic
+	 * we implement because we can for the sake of convenience.
+	 *
+	 * Also note that testing for multicast also catches the broadcast
+	 * case.
 	 */
 
-	lp = net_allocate_ethernet_packet_link(net, nic, (int)size);
-	memcpy(lp->data, buf, size);
+	if (net_ether_multicast(buf) || net_ether_eq(nic->mac_address, buf) ||
+	    nic->promiscuous_mode) {
+		lp = net_allocate_ethernet_packet_link(net, nic, (int)size);
+		memcpy(lp->data, buf, size);
+	}
 }
 
 /*
@@ -103,6 +108,14 @@ void net_tap_rx_avail(struct net *net)
 			/* No more packets available on the tap. */
 			break;
 		}
+
+		/*
+		 * Drop runt packets now; allow other layers to assume
+		 * valid Ethernet frames.  This really should be 64, but
+		 * 20 is used in the transmit path.
+		 */
+		if (bytes_read < 20)
+			continue;
 
 		for (i = 0; i < net->n_nics; i++) {
 			net_tap_rx_for_nic(net, net->nic_data[i],
