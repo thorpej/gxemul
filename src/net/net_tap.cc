@@ -52,7 +52,7 @@
  *
  *  Receive a packet from the virtual Ethernet switch for this NIC.
  */
-static void net_tap_rx_for_nic(struct net *net, void *extra,
+static void net_tap_rx_for_nic(struct net *net, struct nic_data *nic,
 	unsigned char *buf, ssize_t size)
 {
 	struct ethernet_packet_link *lp;
@@ -73,7 +73,7 @@ static void net_tap_rx_for_nic(struct net *net, void *extra,
 	 * ==> The interface is in promiscuous mode.
 	 */
 
-	lp = net_allocate_ethernet_packet_link(net, extra, (int)size);
+	lp = net_allocate_ethernet_packet_link(net, nic, (int)size);
 	memcpy(lp->data, buf, size);
 }
 
@@ -105,7 +105,7 @@ void net_tap_rx_avail(struct net *net)
 		}
 
 		for (i = 0; i < net->n_nics; i++) {
-			net_tap_rx_for_nic(net, net->nic_extra[i],
+			net_tap_rx_for_nic(net, net->nic_data[i],
 			    buf, bytes_read);
 		}
 	}
@@ -120,15 +120,15 @@ void net_tap_rx_avail(struct net *net)
  *  tap device so that the host system can monitor traffic by running tcpdump
  *  on its view of the tap.
  */
-void net_tap_tx(struct net *net, void *extra,
+void net_tap_tx(struct net *net, struct nic_data *nic,
 	unsigned char *packet, int len)
 {
 	int i;
 
 	for (i = 0; i < net->n_nics; i++) {
-		if (extra == net->nic_extra[i])
+		if (nic == net->nic_data[i])
 			continue;
-		net_tap_rx_for_nic(net, net->nic_extra[i], packet, len);
+		net_tap_rx_for_nic(net, net->nic_data[i], packet, len);
 	}
 
 	/*

@@ -76,15 +76,14 @@
 #define	ROM_WIDTH		6
 
 struct dec21143_data {
+	/*  NIC common data  */
+	struct nic_data	nic;
+
 	struct interrupt irq;
 	int		irq_was_asserted;
 
 	/*  PCI:  */
 	int		pci_little_endian;
-
-	/*  Ethernet address, and a network which we are connected to:  */
-	uint8_t		mac[6];
-	struct net	*net;
 
 	/*  SROM emulation:  */
 	uint8_t		srom[1 << (ROM_WIDTH + 1)];
@@ -146,12 +145,12 @@ int dec21143_rx(struct cpu *cpu, struct dec21143_data *d)
 	/*  No current packet? Then check for new ones.  */
 	if (d->cur_rx_buf == NULL) {
 		/*  Nothing available? Then abort.  */
-		if (!net_ethernet_rx_avail(d->net, d))
+		if (!net_ethernet_rx_avail(d->nic.net, &d->nic))
 			return 0;
 
 		/*  Get the next packet into our buffer:  */
-		net_ethernet_rx(d->net, d, &d->cur_rx_buf,
-		    &d->cur_rx_buf_len);
+		net_ethernet_rx(d->nic.net, &d->nic,
+		    &d->cur_rx_buf, &d->cur_rx_buf_len);
 
 		/*  Append a 4 byte CRC:  */
 		d->cur_rx_buf_len += 4;
@@ -400,9 +399,9 @@ int dec21143_tx(struct cpu *cpu, struct dec21143_data *d)
 		/*  Last segment? Then actually transmit it:  */
 		if (tdes1 & TDCTL_Tx_LS) {
 			/*  fatal("{ TX: data frame complete. }\n");  */
-			if (d->net != NULL) {
-				net_ethernet_tx(d->net, d, d->cur_tx_buf,
-				    d->cur_tx_buf_len);
+			if (d->nic.net != NULL) {
+				net_ethernet_tx(d->nic.net, &d->nic,
+				    d->cur_tx_buf, d->cur_tx_buf_len);
 			} else {
 				static int warn = 0;
 				if (!warn)
@@ -777,7 +776,7 @@ static void dec21143_reset(struct cpu *cpu, struct dec21143_data *d)
 	d->srom[TULIP_ROM_CHIP_COUNT] = 1;
 
 	/*  Set the MAC address:  */
-	memcpy(d->srom + TULIP_ROM_IEEE_NETWORK_ADDRESS, d->mac, 6);
+	memcpy(d->srom + TULIP_ROM_IEEE_NETWORK_ADDRESS, d->nic.mac_address, 6);
 
 	leaf = 30;
 	d->srom[TULIP_ROM_CHIPn_DEVICE_NUMBER(0)] = 0;
@@ -983,15 +982,15 @@ DEVINIT(dec21143)
 	INTERRUPT_CONNECT(devinit->interrupt_path, d->irq);
 	d->pci_little_endian = devinit->pci_little_endian;
 
-	net_generate_unique_mac(devinit->machine, d->mac);
-	net_add_nic(devinit->machine->emul->net, d, d->mac);
-	d->net = devinit->machine->emul->net;
+	net_generate_unique_mac(devinit->machine, d->nic.mac_address);
+	net_add_nic(devinit->machine->emul->net, &d->nic);
 
 	dec21143_reset(devinit->machine->cpus[0], d);
 
 	snprintf(name2, sizeof(name2), "%s [%02x:%02x:%02x:%02x:%02x:%02x]",
-	    devinit->name, d->mac[0], d->mac[1], d->mac[2], d->mac[3],
-	    d->mac[4], d->mac[5]);
+	    devinit->name, d->nic.mac_address[0], d->nic.mac_address[1],
+	    d->nic.mac_address[2], d->nic.mac_address[3],
+	    d->nic.mac_address[4], d->nic.mac_address[5]);
 
 	memory_device_register(devinit->machine->memory, name2,
 	    devinit->addr, 0x100, dev_dec21143_access, d, DM_DEFAULT, NULL);

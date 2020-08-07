@@ -83,6 +83,8 @@ extern int quiet_mode;
 
 
 struct le_data {
+	struct nic_data	nic;
+
 	struct interrupt irq;
 	int		irq_asserted;
 
@@ -163,6 +165,8 @@ static void le_chip_init(struct le_data *d)
 		    "not word aligned? ]\n");
 
 	debug("[ le: d->init_block_addr = 0x%06x ]\n", d->init_block_addr);
+
+	/* XXXJRT process PADR from the init block properly */
 
 	d->mode = le_read_16bit(d, d->init_block_addr + 0);
 	d->padr = le_read_16bit(d, d->init_block_addr + 2);
@@ -308,7 +312,8 @@ static void le_tx(struct net *net, struct le_data *d)
 		 *  the packet.
 		 */
 		if (enp) {
-			net_ethernet_tx(net, d, d->tx_packet, d->tx_packet_len);
+			net_ethernet_tx(net, &d->nic, d->tx_packet,
+			    d->tx_packet_len);
 
 			free(d->tx_packet);
 			d->tx_packet = NULL;
@@ -481,8 +486,8 @@ static void le_register_fix(struct net *net, struct le_data *d)
 				break;
 
 			if (d->rx_packet == NULL &&
-			    net_ethernet_rx_avail(net, d))
-				net_ethernet_rx(net, d,
+			    net_ethernet_rx_avail(net, &d->nic))
+				net_ethernet_rx(net, &d->nic,
 				    &d->rx_packet, &d->rx_packet_len);
 		} while (d->rx_packet != NULL);
 	}
@@ -813,6 +818,7 @@ void dev_le_init(struct machine *machine, struct memory *mem, uint64_t baseaddr,
 
 	machine_add_tickfunction(machine, dev_le_tick, d, LE_TICK_SHIFT);
 
-	net_add_nic(machine->emul->net, d, &d->rom[0]);
+	memcpy(d->nic.mac_address, &d->rom[0], sizeof(d->nic.mac_address));
+	net_add_nic(machine->emul->net, &d->nic);
 }
 
