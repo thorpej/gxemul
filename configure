@@ -347,6 +347,12 @@ echo "$CXX $CXXFLAGS"
 if [ z$NOX11 = z ]; then
 	printf "checking for X11 headers and libs\n"
 
+	if [ -d /usr/X11R7 ]; then
+		X11BASE=/usr/X11R7
+	else
+		X11BASE=/usr/X11R6
+	fi
+
 	#  Try to compile a small X11 test program:
 	printf "#include <X11/Xlib.h>
 	#include <stdio.h>
@@ -360,10 +366,10 @@ if [ z$NOX11 = z ]; then
 
 	XOK=0
 
-	XINCLUDE=-I/usr/X11R6/include
+	XINCLUDE=-I${X11BASE}/include
 	$CXX $CXXFLAGS _test_x11.cc -c -o _test_x11.o $XINCLUDE 2> /dev/null
 
-	XLIB="-L/usr/X11R6/lib -lX11"
+	XLIB="-L${X11BASE}/lib -lX11"
 	$CXX $CXXFLAGS _test_x11.o -o _test_x11 $XLIB 2> /dev/null
 
 	if [ -x _test_x11 ]; then
@@ -403,7 +409,7 @@ if [ z$NOX11 = z ]; then
 	if [ z$XOK = z0 ]; then
 		$CXX $CXXFLAGS _test_x11.cc -c -o _test_x11.o $XINCLUDE 2> /dev/null
 
-		XLIB="-L/usr/X11R6/lib64 -lX11"
+		XLIB="-L${X11BASE}/lib64 -lX11"
 		$CXX $CXXFLAGS _test_x11.o -o _test_x11 $XLIB 2> /dev/null
 
 		if [ -x _test_x11 ]; then
@@ -428,13 +434,13 @@ if [ z$NOX11 = z ]; then
 
 	if [ z`uname` = zNetBSD ]; then
 		echo "Using NetBSD hack for X11 libs..."
-		XLIB="$XLIB -Wl,-rpath,/usr/X11R6/lib"
+		XLIB="$XLIB -Wl,-rpath,${X11BASE}/lib"
 	fi
 
 	if [ z`uname` = zOpenBSD ]; then
 		if [ z`uname -m` = zarc ]; then
 			echo "Using old OpenBSD/arc hack for X11 libs..."
-			XLIB="$XLIB -Wl,-rpath,/usr/X11R6/lib"
+			XLIB="$XLIB -Wl,-rpath,${X11BASE}/lib"
 		fi
 	fi
 
