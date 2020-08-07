@@ -120,6 +120,10 @@ struct net {
 	/*  The emul struct which this net belong to:  */
 	struct emul	*emul;
 
+	/*  The network's tap device, if we're using tap:  */
+	const char	*tapdev;
+	int		tap_fd;
+
 	/*  The network's addresses:  */
 	struct in_addr	netmask_ipv4;
 	int		netmask_ipv4_len;
@@ -151,6 +155,11 @@ struct net {
 	struct remote_net *remote_nets;
 };
 
+/*  net_tap.c:  */
+void net_tap_rx_avail(struct net *net);
+void net_tap_tx(struct net *net, void *extra, unsigned char *packet, int len);
+int net_tap_init(struct net *net, const char *tapdev);
+
 /*  net_misc.c:  */
 void net_debugaddr(void *addr, int type);
 void net_generate_unique_mac(struct machine *, unsigned char *macbuf);
@@ -181,6 +190,7 @@ void net_ethernet_tx(struct net *net, void *extra,
 void net_dumpinfo(struct net *net);
 void net_add_nic(struct net *net, void *extra, unsigned char *macaddr);
 struct net *net_init(struct emul *emul, int init_flags,
+	const char *tapdev,
 	const char *ipv4addr, int netipv4len, char **remote, int n_remote,
 	int local_port, const char *settings_prefix);
 

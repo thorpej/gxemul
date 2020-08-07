@@ -256,6 +256,15 @@ int net_ethernet_rx_avail(struct net *net, void *extra)
 		return 0;
 
 	/*
+	 *  If we're using a tap device, check in with that and
+	 *  that's it.
+	 */
+	if (net->tapdev) {
+		net_tap_rx_avail(net);
+		return net_ethernet_rx(net, extra, NULL, NULL);
+	}
+
+	/*
 	 *  If the network is distributed across multiple emulator processes,
 	 *  then receive incoming packets from those processes.
 	 */
@@ -376,14 +385,23 @@ void net_ethernet_tx(struct net *net, void *extra,
 	if (net == NULL)
 		return;
 
-	for_the_gateway = !memcmp(packet, net->gateway_ethernet_addr, 6);
-
 	/*  Drop too small packets:  */
 	if (len < 20) {
 		fatal("[ net_ethernet_tx: Warning: dropping tiny packet "
 		    "(%i bytes) ]\n", len);
 		return;
 	}
+
+	/*
+	 * If we're using a tap device, we send the packet that way
+	 * and that's it.
+	 */
+	if (net->tapdev) {
+		net_tap_tx(net, extra, packet, len);
+		return;
+	}
+
+	for_the_gateway = !memcmp(packet, net->gateway_ethernet_addr, 6);
 
 	/*
 	 *  Copy this packet to all other NICs on this network (except if
@@ -718,6 +736,7 @@ void net_dumpinfo(struct net *net)
  *  On failure, exit() is called.
  */
 struct net *net_init(struct emul *emul, int init_flags,
+	const char *tapdev,
 	const char *ipv4addr, int netipv4len,
 	char **remote, int n_remote, int local_port,
 	const char *settings_prefix)
@@ -734,6 +753,19 @@ struct net *net_init(struct emul *emul, int init_flags,
 	/*  Sane defaults:  */
 	net->timestamp = 0;
 	net->first_ethernet_packet = net->last_ethernet_packet = NULL;
+	net->tapdev = NULL;
+	net->tap_fd = -1;
+
+	/*
+	 *  If we're using a tap device, attempt to initialize it and
+	 *  none of the other stuff.
+	 */
+	if (tapdev) {
+		if (! net_tap_init(net, tapdev))
+			exit(1);
+		net_dumpinfo(net);
+		return net;
+	}
 
 #ifdef HAVE_INET_PTON
 	res = inet_pton(AF_INET, ipv4addr, &net->netmask_ipv4);
