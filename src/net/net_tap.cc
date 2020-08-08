@@ -60,23 +60,25 @@ static void net_tap_rx_for_nic(struct net *net, struct nic_data *nic,
 	/*
 	 * We should deliver to the interface if:
 	 *
+	 * ==> The interface is in promiscuous mode.
+	 *  -- or --
 	 * ==> The packet is broadcast or multicast (the emulated device
 	 *     can further apply a multicast filter if it wishes).
 	 *  -- or --
 	 * ==> The destination MAC address matches the NIC MAC address.
-	 *  -- or --
-	 * ==> The interface is in promiscuous mode.
 	 *
 	 * Note that normally a switch would not know if an interface
 	 * is in promiscuous mode, but this is a bit of extra magic
 	 * we implement because we can for the sake of convenience.
+	 * Also, some emulated interfaces may want to see all packets
+	 * so as to implement their own filtering logic.
 	 *
 	 * Also note that testing for multicast also catches the broadcast
 	 * case.
 	 */
 
-	if (net_ether_multicast(buf) || net_ether_eq(nic->mac_address, buf) ||
-	    nic->promiscuous_mode) {
+	if (nic->promiscuous_mode ||
+	    net_ether_multicast(buf) || net_ether_eq(nic->mac_address, buf)) {
 		lp = net_allocate_ethernet_packet_link(net, nic, (int)size);
 		memcpy(lp->data, buf, size);
 	}
